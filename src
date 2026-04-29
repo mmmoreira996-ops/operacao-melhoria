@@ -1,0 +1,913 @@
+export type ProgramStatus = "Pendente" | "Finalizado" | "Nao realizado" | "Reprogramado"
+
+export type ProgramItem = {
+  id: string
+  os: string
+  section: string
+  activity: string
+  planned: string
+  real?: string
+  status: ProgramStatus
+  cause?: string
+}
+
+export type NcCase = {
+  id: string
+  code: string
+  area: string
+  title: string
+  problem: string
+  evidence: string
+  severity: "Baixa" | "Media" | "Alta" | "Critica"
+  stage: string
+  status: "Aberta" | "Em analise" | "Em andamento" | "Encerrada" | "Critica"
+}
+
+export type ActionItem = {
+  id: string
+  origin: string
+  owner: string
+  due: string
+  status: "Aberta" | "Em andamento" | "Concluida" | "Atrasada"
+  title: string
+}
+
+export const programItems: ProgramItem[] = [
+  {
+    id: "p1",
+    os: "15561",
+    section: "Usinagem",
+    activity: "Usinar aneis de curto em relacao as capas de inox",
+    planned: "2026-04-27",
+    real: "2026-04-27",
+    status: "Finalizado",
+  },
+  {
+    id: "p2",
+    os: "15951",
+    section: "Usinagem",
+    activity: "Fabricacao dos labirintos bipartidos",
+    planned: "2026-04-27",
+    status: "Nao realizado",
+    cause: "Priorizacao de OS",
+  },
+  {
+    id: "p3",
+    os: "15758",
+    section: "Usinagem",
+    activity: "Recuperacao dimensional do eixo",
+    planned: "2026-04-28",
+    status: "Pendente",
+  },
+  {
+    id: "p4",
+    os: "17186",
+    section: "Usinagem",
+    activity: "Usinagem de comutador",
+    planned: "2026-04-28",
+    status: "Nao realizado",
+    cause: "Peca ou equipamento nao recebido",
+  },
+]
+
+export const ncCases: NcCase[] = [
+  {
+    id: "nc-0042",
+    code: "NC-0042",
+    area: "Usinagem",
+    title: "Peca liberada sem informacao dimensional suficiente",
+    problem: "A equipe iniciou preparacao de usinagem sem desenho atualizado e sem criterio dimensional validado.",
+    evidence: "OS 17186, registro fotografico e divergencia entre desenho antigo e peca recebida.",
+    severity: "Alta",
+    stage: "Causa raiz",
+    status: "Em analise",
+  },
+  {
+    id: "nc-0043",
+    code: "NC-0043",
+    area: "PCP",
+    title: "Reprogramacao recorrente por conflito de prioridade",
+    problem: "Atividades planejadas foram deslocadas tres vezes na mesma semana por entrada de urgencias.",
+    evidence: "Programacao semanal, apontamentos diarios e historico de mudanca de prioridade.",
+    severity: "Media",
+    stage: "Acao corretiva",
+    status: "Em andamento",
+  },
+  {
+    id: "nc-0044",
+    code: "NC-0044",
+    area: "Qualidade",
+    title: "Checklist de recebimento incompleto",
+    problem: "Item critico chegou a producao sem conferencia completa de documentos e estado fisico.",
+    evidence: "Checklist parcial, fotos do recebimento e relato do inspetor.",
+    severity: "Critica",
+    stage: "Contencao",
+    status: "Critica",
+  },
+]
+
+export const pareto = [
+  { cause: "Priorizacao de OS", count: 34, pct: 28 },
+  { cause: "Peca ou equipamento nao recebido", count: 27, pct: 22 },
+  { cause: "Falha de orcamento", count: 22, pct: 18 },
+  { cause: "Retrabalho", count: 18, pct: 15 },
+  { cause: "Falta de desenho", count: 12, pct: 10 },
+]
+
+export const actions: ActionItem[] = [
+  {
+    id: "a1",
+    origin: "NC-0042",
+    owner: "Qualidade",
+    due: "2026-05-03",
+    status: "Em andamento",
+    title: "Padronizar checklist de recebimento de pecas criticas",
+  },
+  {
+    id: "a2",
+    origin: "OS 15951",
+    owner: "PCP",
+    due: "2026-04-30",
+    status: "Aberta",
+    title: "Revisar regra de priorizacao semanal com supervisores",
+  },
+  {
+    id: "a3",
+    origin: "Retrabalho",
+    owner: "Engenharia",
+    due: "2026-04-25",
+    status: "Atrasada",
+    title: "Criar padrao de medicao antes da liberacao para usinagem",
+  },
+]
+
+export {}
+
+declare global {
+  interface LocalExcelFile {
+    name: string
+    path: string
+    size: number
+    modifiedAt: string
+  }
+
+  interface Window {
+    localFiles?: {
+      chooseFolder: () => Promise<string | null>
+      listExcel: (folderPath: string) => Promise<LocalExcelFile[]>
+    }
+  }
+}
+
+import React from "react"
+import { createRoot } from "react-dom/client"
+import { App } from "./App"
+import "./styles.css"
+
+createRoot(document.getElementById("root") as HTMLElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+
+:root {
+  color: #172026;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #eef2f3;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 264px 1fr;
+}
+
+.sidebar {
+  background: #111918;
+  color: #f4fbf8;
+  padding: 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 22px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+
+.brand-mark {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: #74c69d;
+  color: #0b1713;
+  font-weight: 800;
+}
+
+.brand span, .eyebrow, .panel-heading span, .metric span, .metric p, .work-card p, .pareto-row span {
+  color: #687574;
+  font-size: 13px;
+}
+
+.sidebar .brand span { display: block; color: #a8b8b3; }
+.sidebar nav { display: grid; gap: 6px; padding-top: 18px; }
+.sidebar button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: #d6e0dd;
+  padding: 10px 12px;
+  text-align: left;
+}
+.sidebar button.active, .sidebar button:hover { background: #22302d; color: white; }
+
+.workspace { padding: 24px 28px 40px; }
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 28px; }
+h2 { font-size: 18px; }
+h3 { font-size: 16px; }
+.eyebrow { text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+
+.top-actions, .card-actions, .table-tools { display: flex; gap: 10px; align-items: center; }
+.primary, .secondary, .icon-button, .work-card button {
+  border: 1px solid #c8d4d0;
+  background: white;
+  min-height: 38px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.primary { background: #176b5b; color: white; border-color: #176b5b; }
+.icon-button { width: 38px; padding: 0; justify-content: center; }
+
+.page-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.metric, .panel, .work-card {
+  background: white;
+  border: 1px solid #d8e0de;
+  border-radius: 8px;
+  padding: 18px;
+}
+.metric { min-height: 148px; display: grid; gap: 8px; align-content: start; }
+.metric strong { font-size: 30px; }
+.panel { grid-column: span 4; }
+.panel.wide { grid-column: span 3; }
+.panel.split { display: grid; grid-template-columns: 1fr 430px; gap: 24px; }
+.panel-heading { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+
+.pareto-list { display: grid; gap: 14px; }
+.pareto-row {
+  display: grid;
+  grid-template-columns: 260px 1fr 52px;
+  align-items: center;
+  gap: 14px;
+}
+.pareto-row div:first-child { display: grid; gap: 3px; }
+.bar { height: 10px; background: #e8efed; overflow: hidden; }
+.bar i { display: block; height: 100%; background: #2a9d8f; }
+
+.flow, .timeline { display: grid; gap: 10px; }
+.flow div, .timeline div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px;
+  background: #f4f7f6;
+  border: 1px solid #dfe7e4;
+}
+.timeline .done { border-color: #88d4a8; background: #edf9f1; }
+
+.search {
+  min-width: 360px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #cbd7d3;
+  background: white;
+  padding: 0 12px;
+}
+.search input { border: 0; outline: 0; width: 100%; }
+.table-tools { justify-content: space-between; margin-bottom: 14px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { background: #f3f7f6; text-align: left; color: #53615e; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+th, td { padding: 13px 12px; border-bottom: 1px solid #e1e8e6; vertical-align: top; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.success { background: #e3f6e8; color: #1c6b37; }
+.danger { background: #ffe8e5; color: #a33427; }
+.warning { background: #fff4d8; color: #7a5100; }
+.neutral { background: #edf1f2; color: #4a5558; }
+
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.work-card { display: grid; gap: 14px; align-content: start; }
+.work-card button:hover, .secondary:hover, .icon-button:hover { background: #f4f7f6; }
+
+.ai-box {
+  background: #10201d;
+  color: white;
+  border-radius: 8px;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+.ai-box p { color: #d6e5df; }
+textarea {
+  min-height: 132px;
+  border: 1px solid #38504a;
+  background: #172d28;
+  color: white;
+  padding: 12px;
+  resize: vertical;
+  outline: 0;
+}
+.feedback { padding: 12px; border-radius: 6px; font-size: 14px; }
+.feedback.warning { background: #fff4d8; color: #7a5100; }
+.muted { color: #687574; }
+.link-button {
+  border: 0;
+  background: transparent;
+  color: #176b5b;
+  font-weight: 700;
+  padding: 6px 0;
+}
+.treatment-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  gap: 16px;
+  align-items: start;
+}
+.case-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.case-summary div {
+  background: #f4f7f6;
+  border: 1px solid #dfe7e4;
+  padding: 12px;
+}
+.case-summary span, label {
+  display: grid;
+  gap: 7px;
+  color: #53615e;
+  font-size: 13px;
+  font-weight: 700;
+}
+.case-summary strong {
+  color: #172026;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.stage-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.stage-list button {
+  min-height: 40px;
+  border: 1px solid #cbd7d3;
+  background: white;
+  color: #2f3a3a;
+}
+.stage-list button.active {
+  background: #176b5b;
+  border-color: #176b5b;
+  color: white;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.form-grid textarea {
+  min-height: 112px;
+  color: #172026;
+  background: white;
+  border-color: #cbd7d3;
+}
+.ai-panel {
+  background: #10201d;
+  color: white;
+  border-radius: 8px;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+  position: sticky;
+  top: 18px;
+  min-height: calc(100vh - 96px);
+}
+.ai-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ai-heading span { color: #9db6ae; font-size: 13px; }
+.chat-log {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overflow: auto;
+  max-height: 48vh;
+  padding-right: 4px;
+}
+.chat-message {
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.chat-message.assistant {
+  background: #1a312c;
+  color: #e7f2ee;
+}
+.chat-message.user {
+  background: #daf2e3;
+  color: #10201d;
+}
+.chat-message.loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.loading svg { animation: spin 1s linear infinite; }
+.chat-input {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+}
+.chat-input textarea { min-height: 110px; }
+button:disabled { cursor: not-allowed; opacity: .7; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.local-source {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+small {
+  color: #697674;
+  font-size: 12px;
+}
+
+@media (max-width: 1000px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+  .sidebar nav { grid-template-columns: repeat(2, 1fr); }
+  .page-grid, .cards, .panel.split, .treatment-layout, .case-summary, .form-grid { grid-template-columns: 1fr; }
+  .panel, .panel.wide { grid-column: auto; }
+  .pareto-row { grid-template-columns: 1fr; }
+  .topbar, .table-tools { align-items: stretch; flex-direction: column; }
+  .search { min-width: 0; }
+  .local-source { grid-template-columns: 1fr; }
+  .ai-panel { position: static; min-height: auto; }
+  .stage-list { grid-template-columns: 1fr; }
+}
+
+import { useMemo, useState } from "react"
+import {
+  AlertTriangle,
+  BarChart3,
+  BrainCircuit,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardCheck,
+  ClipboardList,
+  FileText,
+  Gauge,
+  ListChecks,
+  Loader2,
+  MessageSquareText,
+  Search,
+  Settings,
+  Sparkles,
+  Upload,
+} from "lucide-react"
+import { actions, ncCases, pareto, programItems, type NcCase, type ProgramItem } from "./data"
+
+type View = "dashboard" | "ncs" | "tratativa" | "acoes" | "conhecimento" | "admin"
+type ChatMessage = { role: "user" | "assistant"; content: string }
+
+const nav: { id: View; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
+  { id: "dashboard", label: "Dashboard", icon: Gauge },
+  { id: "ncs", label: "Nao conformidades", icon: AlertTriangle },
+  { id: "tratativa", label: "Tratativa guiada", icon: BrainCircuit },
+  { id: "acoes", label: "Planos de acao", icon: ListChecks },
+  { id: "conhecimento", label: "Conhecimento", icon: FileText },
+  { id: "admin", label: "Configuracoes", icon: Settings },
+]
+
+const stages = ["Abertura", "Contencao", "Causa raiz", "Acao corretiva", "Eficacia", "Encerramento"]
+const analysisMenu = [
+  "Revisao da Descricao da Anomalia",
+  "Analise de Causa 5 Porques",
+  "Analise Ishikawa 6M",
+  "Plano de Acao 5W1H",
+  "Outra Pergunta",
+]
+
+function statusClass(status: string) {
+  if (status === "Encerrada" || status === "Concluida" || status === "Finalizado") return "success"
+  if (status === "Atrasada" || status === "Critica") return "danger"
+  if (status === "Em analise" || status === "Em andamento") return "warning"
+  return "neutral"
+}
+
+export function App() {
+  const [view, setView] = useState<View>("dashboard")
+  const [selectedCaseId, setSelectedCaseId] = useState(ncCases[0].id)
+  const [query, setQuery] = useState("")
+
+  const selectedCase = ncCases.find((item) => item.id === selectedCaseId) ?? ncCases[0]
+  const filteredCases = useMemo(() => {
+    const value = query.toLowerCase()
+    return ncCases.filter((item) => `${item.code} ${item.title} ${item.area} ${item.status}`.toLowerCase().includes(value))
+  }, [query])
+
+  function openCase(item: NcCase) {
+    setSelectedCaseId(item.id)
+    setView("tratativa")
+  }
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">DI</div>
+          <div>
+            <strong>DATA IA</strong>
+            <span>Tratativa de nao conformidade</span>
+          </div>
+        </div>
+        <nav>
+          {nav.map((item) => {
+            const Icon = item.icon
+            return (
+              <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}>
+                <Icon size={18} />
+                {item.label}
+              </button>
+            )
+          })}
+        </nav>
+      </aside>
+
+      <main className="workspace">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Web app Vercel + OpenAI API</p>
+            <h1>{nav.find((item) => item.id === view)?.label}</h1>
+          </div>
+          <div className="top-actions">
+            <button className="icon-button" title="Importar documentos">
+              <Upload size={18} />
+            </button>
+            <button className="primary" onClick={() => setView("tratativa")}>
+              <Sparkles size={16} />
+              Abrir IA
+            </button>
+          </div>
+        </header>
+
+        {view === "dashboard" && <Dashboard items={programItems} />}
+        {view === "ncs" && <NaoConformidades items={filteredCases} query={query} setQuery={setQuery} openCase={openCase} />}
+        {view === "tratativa" && <Tratativa selectedCase={selectedCase} />}
+        {view === "acoes" && <Acoes />}
+        {view === "conhecimento" && <Conhecimento />}
+        {view === "admin" && <Admin />}
+      </main>
+    </div>
+  )
+}
+
+function Dashboard({ items }: { items: ProgramItem[] }) {
+  const finalized = items.filter((item) => item.status === "Finalizado").length
+  return (
+    <section className="page-grid">
+      <Metric title="NCs abertas" value="4" detail="2 em causa raiz e 1 aguardando eficacia" icon={AlertTriangle} />
+      <Metric title="Execucao semanal" value={`${Math.round((finalized / items.length) * 100)}%`} detail={`${finalized} de ${items.length} atividades finalizadas`} icon={CalendarDays} />
+      <Metric title="Acoes abertas" value="3" detail="1 acao esta vencida" icon={ListChecks} />
+      <Metric title="Base IA" value="8" detail="documentos previstos para conhecimento" icon={BrainCircuit} />
+
+      <section className="panel wide">
+        <div className="panel-heading">
+          <h2>Pareto de causas</h2>
+          <span>Ultimas 4 semanas</span>
+        </div>
+        <div className="pareto-list">
+          {pareto.map((item) => (
+            <div className="pareto-row" key={item.cause}>
+              <div>
+                <strong>{item.cause}</strong>
+                <span>{item.count} ocorrencias registradas</span>
+              </div>
+              <div className="bar">
+                <i style={{ width: `${item.pct * 3}%` }} />
+              </div>
+              <b>{item.pct}%</b>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <h2>Fluxo de tratativa</h2>
+          <span>Rastreabilidade</span>
+        </div>
+        <div className="flow">
+          {stages.map((step, index) => (
+            <div key={step}>
+              <CheckCircle2 size={18} />
+              <span>{index + 1}. {step}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </section>
+  )
+}
+
+function Metric({ title, value, detail, icon: Icon }: { title: string; value: string; detail: string; icon: React.ComponentType<{ size?: number }> }) {
+  return (
+    <section className="metric">
+      <Icon size={20} />
+      <span>{title}</span>
+      <strong>{value}</strong>
+      <p>{detail}</p>
+    </section>
+  )
+}
+
+function NaoConformidades({ items, query, setQuery, openCase }: { items: NcCase[]; query: string; setQuery: (value: string) => void; openCase: (item: NcCase) => void }) {
+  return (
+    <section className="panel">
+      <div className="table-tools">
+        <div className="search">
+          <Search size={17} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por codigo, area, status ou descricao" />
+        </div>
+        <button className="primary">
+          <ClipboardCheck size={16} />
+          Nova NC
+        </button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Codigo</th>
+            <th>Area</th>
+            <th>Descricao</th>
+            <th>Etapa</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              <td><strong>{item.code}</strong></td>
+              <td>{item.area}</td>
+              <td>{item.title}</td>
+              <td>{item.stage}</td>
+              <td><span className={`badge ${statusClass(item.status)}`}>{item.status}</span></td>
+              <td><button className="link-button" onClick={() => openCase(item)}>Tratar</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+function Tratativa({ selectedCase }: { selectedCase: NcCase }) {
+  const [currentStage, setCurrentStage] = useState(selectedCase.stage)
+  const [input, setInput] = useState("")
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "assistant",
+      content: "Ola, estou pronto para ajudar em sua analise. Preciso que voce me de a descricao do problema ou da anomalia que deseja analisar, antes de prosseguirmos.",
+    },
+  ])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  async function sendMessage() {
+    const text = input.trim()
+    if (!text || loading) return
+
+    const nextMessages: ChatMessage[] = [...messages, { role: "user", content: text }]
+    setMessages(nextMessages)
+    setInput("")
+    setError("")
+    setLoading(true)
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseData: selectedCase,
+          stage: currentStage,
+          messages: nextMessages,
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error ?? "Falha ao consultar a IA.")
+      setMessages((current) => [...current, { role: "assistant", content: data.answer }])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao consultar a IA.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <section className="treatment-layout">
+      <div className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>{selectedCase.code} - {selectedCase.title}</h2>
+          <span>{selectedCase.area} | severidade {selectedCase.severity}</span>
+          </div>
+          <span className={`badge ${statusClass(selectedCase.status)}`}>{selectedCase.status}</span>
+        </div>
+
+        <div className="case-summary">
+          <div>
+            <span>Problema</span>
+            <strong>{selectedCase.problem}</strong>
+          </div>
+          <div>
+            <span>Evidencia inicial</span>
+            <strong>{selectedCase.evidence}</strong>
+          </div>
+        </div>
+
+        <div className="stage-list">
+          {analysisMenu.map((stage, index) => (
+            <button key={stage} className={currentStage === stage ? "active" : ""} onClick={() => setCurrentStage(stage)}>
+              {index + 1}. {stage}
+            </button>
+          ))}
+        </div>
+
+        <div className="form-grid">
+          <label>
+            Descricao da anomalia
+            <textarea defaultValue={selectedCase.problem} />
+          </label>
+          <label>
+            Contencao imediata
+            <textarea placeholder="O que foi feito para proteger o cliente/processo?" />
+          </label>
+          <label>
+            Analise de causa
+            <textarea placeholder="Causa tecnica, sistemica ou de processo, baseada em evidencia." />
+          </label>
+          <label>
+            Plano e eficacia
+            <textarea placeholder="Como saberemos que a acao corretiva funcionou?" />
+          </label>
+        </div>
+      </div>
+
+      <aside className="ai-panel">
+        <div className="ai-heading">
+          <BrainCircuit size={22} />
+          <div>
+            <h2>Assistente IA</h2>
+            <span>{currentStage}</span>
+          </div>
+        </div>
+
+        <div className="chat-log">
+          {messages.map((message, index) => (
+            <div className={`chat-message ${message.role}`} key={`${message.role}-${index}`}>
+              {message.content}
+            </div>
+          ))}
+          {loading && (
+            <div className="chat-message assistant loading">
+              <Loader2 size={16} />
+              Analisando...
+            </div>
+          )}
+        </div>
+
+        {error && <div className="feedback warning">{error}</div>}
+
+        <div className="chat-input">
+          <textarea value={input} onChange={(event) => setInput(event.target.value)} placeholder="Responda ou peca uma analise da etapa atual..." />
+          <button className="primary" onClick={sendMessage} disabled={loading}>
+            <MessageSquareText size={16} />
+            Enviar
+          </button>
+        </div>
+      </aside>
+    </section>
+  )
+}
+
+function Acoes() {
+  return (
+    <section className="panel">
+      <table>
+        <thead>
+          <tr>
+            <th>Origem</th>
+            <th>Acao</th>
+            <th>Responsavel</th>
+            <th>Prazo</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {actions.map((action) => (
+            <tr key={action.id}>
+              <td>{action.origin}</td>
+              <td>{action.title}</td>
+              <td>{action.owner}</td>
+              <td>{new Date(action.due).toLocaleDateString("pt-BR")}</td>
+              <td><span className={`badge ${statusClass(action.status)}`}>{action.status}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+function Conhecimento() {
+  return (
+    <section className="cards">
+      {["Script do GPT", "Procedimentos internos", "Modelos de relatorio", "Historico de NCs"].map((item) => (
+        <article className="work-card" key={item}>
+          <FileText size={22} />
+          <h3>{item}</h3>
+          <p>Area reservada para subir, revisar e versionar os documentos usados pela IA na tratativa.</p>
+          <button>Adicionar arquivo</button>
+        </article>
+      ))}
+    </section>
+  )
+}
+
+function Admin() {
+  return (
+    <section className="page-grid">
+      {["Usuarios", "Areas", "Categorias", "Aprovacoes"].map((item) => (
+        <section className="metric" key={item}>
+          <ClipboardList size={20} />
+          <span>Cadastro</span>
+          <strong>{item}</strong>
+          <p>Configuracao prevista para a proxima etapa do sistema.</p>
+        </section>
+      ))}
+      <section className="panel">
+        <div className="panel-heading">
+          <h2>Deploy</h2>
+          <span>Vercel</span>
+        </div>
+        <p className="muted">Configure OPENAI_API_KEY nas variaveis de ambiente da Vercel antes de publicar.</p>
+      </section>
+    </section>
+  )
+}
